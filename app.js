@@ -4,9 +4,8 @@ const app = express();
 const morgan = require("morgan");
 const connectDB = require("./db/connectdb");
 const rateLimiter = require("express-rate-limit");
-const helmet = require("helmet");
-const xss = require("xss-clean");
-const mongoSanitize = require("express-mongo-sanitize");
+// const helmet = require("helmet");
+// const mongoSanitize = require("express-mongo-sanitize");
 
 //routes
 const authRouter = require("./routes/authRouter");
@@ -21,9 +20,8 @@ app.use(
     max: 60,
   })
 );
-app.use(helmet());
-app.use(xss());
-app.use(mongoSanitize());
+// app.use(helmet());
+// app.use(mongoSanitize());
 app.use(cors());
 
 app.use(express.json());

@@ -75,7 +75,70 @@ const loginUser = async (req, res) => {
   }
 };
 
+const updateUser = async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const updates = req.body;
+
+    const user = await User.findById(userId);
+    if (!user || user.softDelete) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    Object.assign(user, updates);
+    await user.save();
+    res.status(200).json({ user });
+  } catch (error) {
+    console.log("error", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+}
+
+const getUserById = async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const user = await User.findById(userId);
+    if (!user || user.softDelete) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    res.status(200).json({ user });
+  } catch (error) {
+    console.log("error", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+const deleteUser = async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const user = await User.findById(userId);
+    if (!user || user.softDelete) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    await User.findByIdAndUpdate(userId, { softDelete: true });
+    res.status(200).json({ message: "User deleted successfully" });
+  } catch (error) {
+    console.log("error", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+const getAllUsers = async (req, res) => {
+  try {
+    const users = await User.find({ softDelete: false });
+    res.status(200).json({ users });
+  } catch (error) {
+    console.log("error", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
 module.exports = {
   registerUser,
   loginUser,
+  getAllUsers,
+  getUserById,
+  deleteUser,
+  updateUser,
 };
