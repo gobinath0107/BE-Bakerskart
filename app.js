@@ -12,6 +12,9 @@ const authRouter = require("./routes/authRouter");
 const productRouter = require("./routes/productRouter");
 const categoryRouter = require("./routes/categoryRouter");
 const orderRouter = require("./routes/orderRouter");
+const authAdminRouter = require("./routes/authAdminRouter");
+const adminRouter = require("./routes/adminRouter");
+const userRouter = require("./routes/userRouter");
 
 const cors = require("cors");
 app.use(
@@ -30,10 +33,13 @@ app.use(express.urlencoded({ extended: true }));
 app.use(morgan("dev"));
 app.use(express.static("public"));
 
+app.use("/api/v1/auth", authRouter);
+app.use("/api/v1/authadmin", authAdminRouter);
+app.use("/api/v1/admins", adminRouter);
 app.use("/api/v1/products", productRouter);
 app.use("/api/v1/categories", categoryRouter);
-app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/orders", orderRouter);
+app.use("/api/v1/users", userRouter);
 
 // Sample route
 app.get("/", (req, res) => {

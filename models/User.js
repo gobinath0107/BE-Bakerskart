@@ -94,6 +94,7 @@ const User = new mongoose.Schema(
 );
 
 User.pre("save", function (next) {
+   if (!this.isModified("password")) return next();
   const genSalt = bcrypt.genSaltSync(10);
   const hash = bcrypt.hashSync(this.password, genSalt);
   this.password = hash;

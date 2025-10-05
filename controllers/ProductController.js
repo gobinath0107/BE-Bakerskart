@@ -3,6 +3,8 @@ const Category = require("../models/Category");
 const mongoose = require("mongoose");
 
 const createProduct = async (req, res) => {
+  console.log("ok", req.body, req.files);
+  
   try {
     const {
       title,
@@ -15,9 +17,7 @@ const createProduct = async (req, res) => {
       featured,
     } = req.body;
 
-    // check category exists
-    const categoryId = new mongoose.Types.ObjectId(category);
-    const cat = await Category.findById(categoryId);
+    const cat = await Category.findOne({ name: category });
     if (!cat) return res.status(400).json({ error: "Category not found" });
 
    // map files to schema fields
@@ -30,6 +30,9 @@ const createProduct = async (req, res) => {
         };
       }
     }
+
+    console.log(images);
+    
 
     const product = new Product({
       title,
@@ -62,7 +65,7 @@ const getAllProducts = async (req, res) => {
       if (cat) query.category = cat._id;
     }
     if (company && company !== "all") query.company = company;
-    if (price) query.price = { $lte: Number(price) };
+    if (price) query.sellingPrice = { $lte: Number(price) };
 
     // sorting
     let sortOption = {};
@@ -113,7 +116,7 @@ const getProductById = async (req, res) => {
     if (!product) return res.status(404).json({ error: "Product not found" });
     res.json(product);
   } catch (error) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: error.message });
   }
 };
 
@@ -122,16 +125,23 @@ const updateProduct = async (req, res) => {
     const product = await Product.findById(req.params.id);
     if (!product) return res.status(404).json({ error: "Product not found" });
 
-    // delete old images from Cloudinary if new images are uploaded
-    if (req.files.length > 0 && product.image.length > 0) {
-      for (const img of product.image) {
-        await cloudinary.uploader.destroy(img.public_id);
-      }
+    // loop over image1..image5
+    for (let i = 1; i <= 5; i++) {
+      const key = `image${i}`;
 
-      product.image = req.files.map((file) => ({
-        url: file.path,
-        public_id: file.filename,
-      }));
+      if (req.files && req.files[key]) {
+        // delete existing image from cloudinary if it exists
+        if (product[key]?.public_id) {
+          await cloudinary.uploader.destroy(product[key].public_id);
+        }
+
+        // assign the new image
+        const file = req.files[key][0];
+        product[key] = {
+          url: file.path,
+          public_id: file.filename,
+        };
+      }
     }
 
     // update other fields
@@ -145,11 +155,13 @@ const updateProduct = async (req, res) => {
       stock,
       featured,
     } = req.body;
-    if (category) {
-      const cat = await Category.findById(category);
-      if (!cat) return res.status(400).json({ error: "Category not found" });
-      product.category = category;
-    }
+
+if (category) {
+  const cat = await Category.findOne({ name: category });
+  if (!cat) return res.status(400).json({ error: "Category not found" });
+  product.category = cat._id;
+}
+
     product.title = title || product.title;
     product.company = company || product.company;
     product.description = description || product.description;
@@ -161,9 +173,11 @@ const updateProduct = async (req, res) => {
     await product.save();
     res.json(product);
   } catch (error) {
+    console.error("error", error);
     res.status(500).json({ error: error.message });
   }
 };
+
 
 const deleteProduct = async (req, res) => {
   try {

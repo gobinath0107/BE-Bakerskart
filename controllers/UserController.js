@@ -44,14 +44,16 @@ const registerUser = async (req, res) => {
 const loginUser = async (req, res) => {
   try {
     const { identifier, password } = req.body;
+    console.log(req.body);
+    
     let user = null;
 
     if (!identifier || !password) {
       return res.status(400).json({ message: "Please provide email or mobile and password" });
     }
 
-    if (typeof identifier === "number") {
-      user = await User.findOne({ mobile: identifier, softDelete: false });
+    if (!isNaN(identifier) && /^\d+$/.test(identifier)) {
+      user = await User.findOne({ mobile: Number(identifier), softDelete: false });
     } else {
       user = await User.findOne({ email: identifier, softDelete: false });
     }
@@ -75,59 +77,84 @@ const loginUser = async (req, res) => {
   }
 };
 
+const getAllUsers = async (req, res) => {
+  try {
+    let { page = 1, pageSize = 10 } = req.query;
+    page = parseInt(page);
+    pageSize = parseInt(pageSize);
+
+    const filter = { softDelete: false };
+
+    // total count
+    const total = await User.countDocuments(filter);
+
+    // paginated users
+    const users = await User.find(filter)
+      .skip((page - 1) * pageSize)
+      .limit(pageSize)
+      .select("-password"); // 👈 hide password field
+
+    // total pages
+    const pageCount = Math.ceil(total / pageSize);
+
+    res.status(200).json({
+      data: users,
+      meta: {
+        pagination: {
+          page,
+          pageSize,
+          pageCount,
+          total,
+        },
+      },
+    });
+  } catch (error) {
+    console.log("error", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+// Get single user by ID
+const getUserById = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user || user.softDelete) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    res.status(200).json({ user });
+  } catch (error) {
+    console.log("error", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+// Update user
 const updateUser = async (req, res) => {
   try {
-    const userId = req.params.id;
-    const updates = req.body;
-
-    const user = await User.findById(userId);
+    const user = await User.findById(req.params.id);
     if (!user || user.softDelete) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    Object.assign(user, updates);
+    Object.assign(user, req.body);
     await user.save();
     res.status(200).json({ user });
   } catch (error) {
     console.log("error", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
-}
-
-const getUserById = async (req, res) => {
-  try {
-    const userId = req.params.id;
-    const user = await User.findById(userId);
-    if (!user || user.softDelete) {
-      return res.status(404).json({ message: "User not found" });
-    }
-    res.status(200).json({ user });
-  } catch (error) {
-    console.log("error", error);
-    res.status(500).json({ message: "Server error", error: error.message });
-  }
 };
 
+// Soft delete user
 const deleteUser = async (req, res) => {
   try {
-    const userId = req.params.id;
-    const user = await User.findById(userId);
+    const user = await User.findById(req.params.id);
     if (!user || user.softDelete) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    await User.findByIdAndUpdate(userId, { softDelete: true });
+    await User.findByIdAndUpdate(req.params.id, { softDelete: true });
     res.status(200).json({ message: "User deleted successfully" });
-  } catch (error) {
-    console.log("error", error);
-    res.status(500).json({ message: "Server error", error: error.message });
-  }
-};
-
-const getAllUsers = async (req, res) => {
-  try {
-    const users = await User.find({ softDelete: false });
-    res.status(200).json({ users });
   } catch (error) {
     console.log("error", error);
     res.status(500).json({ message: "Server error", error: error.message });
@@ -139,6 +166,6 @@ module.exports = {
   loginUser,
   getAllUsers,
   getUserById,
-  deleteUser,
   updateUser,
+  deleteUser,
 };
