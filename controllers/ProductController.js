@@ -1,10 +1,11 @@
 const Product = require("../models/Products");
 const Category = require("../models/Category");
 const mongoose = require("mongoose");
+const cloudinary = require("../utils/cloudinary");
 
 const createProduct = async (req, res) => {
   console.log("ok", req.body, req.files);
-  
+
   try {
     const {
       title,
@@ -20,7 +21,7 @@ const createProduct = async (req, res) => {
     const cat = await Category.findOne({ name: category });
     if (!cat) return res.status(400).json({ error: "Category not found" });
 
-   // map files to schema fields
+    // map files to schema fields
     const images = {};
     for (let i = 1; i <= 5; i++) {
       if (req.files[`image${i}`] && req.files[`image${i}`][0]) {
@@ -32,7 +33,6 @@ const createProduct = async (req, res) => {
     }
 
     console.log(images);
-    
 
     const product = new Product({
       title,
@@ -43,7 +43,7 @@ const createProduct = async (req, res) => {
       sellingPrice,
       stock,
       featured: featured || false,
-        ...images,
+      ...images,
     });
 
     await product.save();
@@ -129,19 +129,29 @@ const updateProduct = async (req, res) => {
     for (let i = 1; i <= 5; i++) {
       const key = `image${i}`;
 
+      // Delete if marked
+      if (req.body[`delete_${key}`] === "true" && product[key]?.public_id) {
+        await cloudinary.uploader.destroy(product[key].public_id);
+        product[key] = {}; // reset
+      }
+
+      // Upload new file if exists
       if (req.files && req.files[key]) {
-        // delete existing image from cloudinary if it exists
         if (product[key]?.public_id) {
           await cloudinary.uploader.destroy(product[key].public_id);
         }
-
-        // assign the new image
         const file = req.files[key][0];
         product[key] = {
           url: file.path,
           public_id: file.filename,
         };
       }
+    }
+
+    if (req.body.featured === "true" || req.body.featured === true) {
+      req.body.featured = true;
+    } else {
+      req.body.featured = false;
     }
 
     // update other fields
@@ -156,11 +166,11 @@ const updateProduct = async (req, res) => {
       featured,
     } = req.body;
 
-if (category) {
-  const cat = await Category.findOne({ name: category });
-  if (!cat) return res.status(400).json({ error: "Category not found" });
-  product.category = cat._id;
-}
+    if (category) {
+      const cat = await Category.findOne({ name: category });
+      if (!cat) return res.status(400).json({ error: "Category not found" });
+      product.category = cat._id;
+    }
 
     product.title = title || product.title;
     product.company = company || product.company;
@@ -177,7 +187,6 @@ if (category) {
     res.status(500).json({ error: error.message });
   }
 };
-
 
 const deleteProduct = async (req, res) => {
   try {
