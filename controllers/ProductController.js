@@ -56,9 +56,9 @@ const createProduct = async (req, res) => {
 
 const getAllProducts = async (req, res) => {
   try {
-    const { search, category, company, order, price, page, limit } = req.query;
+    const { search, category, company, order, price, page, limit, featured } = req.query;
     const query = {};
-
+    if(featured === "true" || featured === true) query.featured = true
     if (search) query.title = { $regex: search, $options: "i" };
     if (category && category !== "all") {
       const cat = await Category.findOne({ name: category });

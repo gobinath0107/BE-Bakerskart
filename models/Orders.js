@@ -20,6 +20,7 @@ const SingleCartItemSchema = new mongoose.Schema({
 
 const OrderSchema = new mongoose.Schema(
   {
+    orderId: { type: String, unique: true },
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -31,6 +32,7 @@ const OrderSchema = new mongoose.Schema(
     state: { type: String, required: true },
 
     cartItems: [SingleCartItemSchema],
+    discount: { type:Number, default: 0 },
 
     numItemsInCart: { type: Number, required: true },
     chargeTotal: { type: Number, required: true }, // raw number
@@ -44,5 +46,14 @@ const OrderSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+OrderSchema.pre("save", async function (next) {
+  if (this.isNew) {
+    const lastOrder = await this.constructor.findOne().sort({ createdAt: -1 });
+    const lastNumber = lastOrder ? parseInt(lastOrder.orderId?.replace("ORD", "")) || 1000 : 1000;
+    this.orderId = `ORD${lastNumber + 1}`;
+  }
+  next();
+});
 
 module.exports = mongoose.model("Order", OrderSchema);
