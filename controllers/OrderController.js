@@ -1,14 +1,17 @@
 // controllers/orderController.js
 const Order = require("../models/Orders");
-const fs = require("fs")
-const path = require("path")
-const PDFDocument = require("pdfkit")
+const fs = require("fs");
+const path = require("path");
+const PDFDocument = require("pdfkit");
 
 const createOrder = async (req, res) => {
   try {
     const { data } = req.body;
     let { cartItems, discount = 0 } = data;
-    const chargeTotal = cartItems.reduce((sum, item) => sum + item.price * item.amount, 0);
+    const chargeTotal = cartItems.reduce(
+      (sum, item) => sum + item.price * item.amount,
+      0
+    );
 
     // Apply fixed discount (₹)
     const discountedTotal = Math.max(0, chargeTotal - discount);
@@ -34,10 +37,10 @@ const getOrders = async (req, res) => {
 
     const total = await Order.countDocuments({ user: req.user.userId });
 
-    const findOrderQuery = {}
+    const findOrderQuery = {};
 
-    if(req.user && req.user.role && req.user.role === "user"){
-      findOrderQuery.user = req.user.userId
+    if (req.user && req.user.role && req.user.role === "user") {
+      findOrderQuery.user = req.user.userId;
     }
 
     const orders = await Order.find(findOrderQuery)
@@ -78,15 +81,15 @@ const getOrders = async (req, res) => {
   }
 };
 
-const getOrderById = async (req,res) => {
+const getOrderById = async (req, res) => {
   try {
-    const order = await Order.findById(req.params.id).populate("user")
+    const order = await Order.findById(req.params.id).populate("user");
     if (!order) return res.status(404).json({ error: "Order not found" });
-    res.json(order)
+    res.json(order);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
-}
+};
 
 // Flexible update order
 const updateOrder = async (req, res) => {
@@ -139,7 +142,6 @@ const updateOrder = async (req, res) => {
   }
 };
 
-
 const deleteOrder = async (req, res) => {
   try {
     const order = await Order.findOneAndDelete({ _id: req.params.id });
@@ -147,8 +149,8 @@ const deleteOrder = async (req, res) => {
 
     res.json({ message: "Order deleted successfully" });
   } catch (error) {
-    console.log("error",error);
-    
+    console.log("error", error);
+
     res.status(500).json({ error: error.message });
   }
 };
@@ -159,38 +161,42 @@ const generateInvoice = async (req, res) => {
     const order = await Order.findById(orderId).populate("user");
     if (!order) return res.status(404).json({ message: "Order not found" });
 
-    const doc = new PDFDocument({ margin: 50 });
-
-    // Set headers before streaming
+    // --- 1️⃣ Prepare response headers ---
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename=invoice-${orderId}.pdf`
+      `inline; filename="invoice-${orderId}.pdf"`
     );
 
-    // Pipe directly to response
+    // --- 2️⃣ Create doc and safely pipe to res ---
+    const doc = new PDFDocument({ autoFirstPage: true, margin: 50 });
     doc.pipe(res);
 
-    // Load font and logo if available
+    // --- 3️⃣ Register font safely ---
     const fontPath = path.join(__dirname, "../fonts/NotoSans.ttf");
-    if (fs.existsSync(fontPath)) doc.registerFont("NotoSans", fontPath).font("NotoSans");
-    const logoPath = path.join(__dirname, "../public/logo.jpeg");
+    if (fs.existsSync(fontPath)) {
+      doc.registerFont("NotoSans", fontPath);
+      doc.font("NotoSans");
+    }
 
-    // ===== HEADER =====
-    doc.rect(0, 0, doc.page.width, 100).fill("#f5f7fa");
-    if (fs.existsSync(logoPath)) doc.image(logoPath, 40, 25, { width: 60, height: 60 });
+    // --- 4️⃣ HEADER section ---
+    const logoPath = path.join(__dirname, "../public/logo.jpeg");
+    doc.rect(0, 0, doc.page.width, 90).fill("#f5f7fa");
+    if (fs.existsSync(logoPath))
+      doc.image(logoPath, 40, 20, { width: 60, height: 60 });
+
     doc
       .fillColor("#2c3e50")
-      .fontSize(28)
-      .text("BAKERSKART", 110, 40)
+      .fontSize(24)
+      .text("BAKERSKART", 120, 35)
       .fontSize(10)
       .fillColor("#34495e")
-      .text("Madurai, Tamil Nadu, India", 400, 35)
-      .text("625011", 400, 50)
-      .text("manager.bakerskart@gmail.com", 400, 65)
-      .text("www.bakerskart.in", 400, 80);
+      .text("Madurai, Tamil Nadu, India", 400, 30)
+      .text("625011", 400, 45)
+      .text("manager.bakerskart@gmail.com", 400, 60)
+      .text("www.bakerskart.in", 400, 75);
 
-    // ===== DATE & CUSTOMER =====
+    // --- 5️⃣ Billing info ---
     const date = new Date(order.createdAt).toLocaleString("en-IN", {
       dateStyle: "medium",
       timeStyle: "short",
@@ -199,25 +205,31 @@ const generateInvoice = async (req, res) => {
     doc
       .fillColor("#2c3e50")
       .fontSize(12)
-      .text("Billed To:", 50, 130)
+      .text("Billed To:", 50, 120)
       .fontSize(10)
-      .text(order.name, 50, 150)
-      .text(order.address, 50, 165)
-      .text(order.user.email || order.user.mobile, 50, 180)
+      .text(order.name, 50, 140)
+      .text(order.address, 50, 155)
+      .text(order.user.email || order.user.mobile, 50, 170)
       .fontSize(10)
-      .text(`Invoice #: ${order.orderId || "INV-" + order._id.toString().slice(-6)}`, 400, 130)
-      .text(`Date: ${date}`, 400, 145)
-      .text(`Status: ${order.status}`, 400, 160);
+      .text(
+        `Invoice #: ${
+          order.orderId || "INV-" + order._id.toString().slice(-6)
+        }`,
+        400,
+        120
+      )
+      .text(`Date: ${date}`, 400, 135)
+      .text(`Status: ${order.status}`, 400, 150);
 
-    // ===== TABLE =====
-    const tableTop = 210;
+    // --- 6️⃣ Table header ---
+    const tableTop = 200;
     doc
-      .fontSize(12)
+      .fontSize(11)
       .fillColor("#2c3e50")
       .text("Description", 50, tableTop)
       .text("Unit Cost", 250, tableTop)
       .text("Qty", 350, tableTop)
-      .text("Amount", 420, tableTop);
+      .text("Amount", 430, tableTop);
 
     doc
       .moveTo(50, tableTop + 15)
@@ -225,50 +237,74 @@ const generateInvoice = async (req, res) => {
       .strokeColor("#dfe6e9")
       .stroke();
 
+    // --- 7️⃣ Items ---
     let y = tableTop + 25;
-    order.cartItems.forEach((item, index) => {
-      if (index % 2 === 0) {
-        doc.rect(50, y - 4, 500, 20).fill("#f8f9fa").fillColor("#2c3e50");
+    order.cartItems.forEach((item, i) => {
+      if (i % 2 === 0) {
+        doc
+          .rect(50, y - 3, 500, 18)
+          .fill("#f8f9fa")
+          .fillColor("#2c3e50");
       }
       doc
         .fontSize(10)
         .text(item.name, 50, y, { width: 180 })
         .text(`₹${item.price.toFixed(2)}`, 250, y)
         .text(item.amount.toString(), 350, y)
-        .text(`₹${(item.price * item.amount).toFixed(2)}`, 420, y);
-      y += 20;
+        .text(`₹${(item.price * item.amount).toFixed(2)}`, 430, y);
+      y += 18;
     });
 
-    // ===== TOTALS =====
-    y += 20;
-    const subtotal = order.cartItems.reduce((t, i) => t + i.price * i.amount, 0);
+    // --- 8️⃣ Totals ---
+    y += 25;
+    const subtotal = order.cartItems.reduce(
+      (sum, i) => sum + i.price * i.amount,
+      0
+    );
     const discount = order.discount || 0;
     const total = Math.max(0, subtotal - discount);
 
     doc
-      .fontSize(12)
+      .fontSize(11)
       .fillColor("#2c3e50")
-      .text(`Subtotal: ₹${subtotal.toFixed(2)}`, 400, y)
-      .text(`Discount: ₹${discount.toFixed(2)}`, 400, y + 15)
+      .text(`Subtotal: ₹${subtotal.toFixed(2)}`, 400, y);
+
+    if (discount > 0) {
+      doc
+        .fillColor("#e74c3c")
+        .text(`Discount: ₹${discount.toFixed(2)}`, 400, y + 15);
+      y += 15;
+    }
+
+    doc
       .fillColor("#007BFF")
       .fontSize(12)
       .text(`Total: ₹${total.toFixed(2)}`, 400, y + 35);
-
-    // ===== FOOTER =====
+    // --- 9️⃣ Footer ---
     doc
       .fontSize(10)
       .fillColor("#7f8c8d")
-      .text("Thank you for your purchase! We hope to serve you again.", 50, y + 70, {
-        align: "center",
-      });
+      .text(
+        "Thank you for your purchase! We hope to serve you again.",
+        50,
+        y + 70,
+        { align: "center" }
+      );
 
+    // --- 🔟 End document properly ---
     doc.end();
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: err.message });
+    console.error("Invoice Error:", err);
+    if (!res.headersSent)
+      res.status(500).json({ message: "Failed to generate invoice" });
   }
 };
 
-
-
-module.exports = { createOrder, getOrders, getOrderById, updateOrder,deleteOrder,generateInvoice };
+module.exports = {
+  createOrder,
+  getOrders,
+  getOrderById,
+  updateOrder,
+  deleteOrder,
+  generateInvoice,
+};
