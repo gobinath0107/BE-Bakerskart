@@ -3,7 +3,11 @@ const Category = require("../models/Category");
 const createCategory = async (req, res) => {
   try {
     const { name, description } = req.body;
-    const category = new Category({ name, description });
+    let uppercasedName = ""
+    if(name){
+      uppercasedName = name.toUpperCase()
+    }
+    const category = new Category({ name:uppercasedName, description });
     await category.save();
     res.status(201).json(category);
   } catch (error) {
