@@ -56,9 +56,10 @@ const createProduct = async (req, res) => {
 
 const getAllProducts = async (req, res) => {
   try {
-    const { search, category, company, order, price, page, limit, featured } = req.query;
+    const { search, category, company, order, price, page, limit, featured } =
+      req.query;
     const query = {};
-    if(featured === "true" || featured === true) query.featured = true
+    if (featured === "true" || featured === true) query.featured = true;
     if (search) query.title = { $regex: search, $options: "i" };
     if (category && category !== "all") {
       const cat = await Category.findOne({ name: category });
@@ -193,7 +194,6 @@ const deleteProduct = async (req, res) => {
     const product = await Product.findById(req.params.id);
     if (!product) return res.status(404).json({ error: "Product not found" });
 
-
     // Delete all Cloudinary images (image1 to image5)
     for (let i = 1; i <= 5; i++) {
       const key = `image${i}`;
@@ -202,10 +202,26 @@ const deleteProduct = async (req, res) => {
       }
     }
 
-    await Product.findOneAndDelete({ _id: product._id })
+    await Product.findOneAndDelete({ _id: product._id });
     res.json({ message: "Product deleted successfully" });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+};
+
+const searchProducts = async (req, res) => {
+  try {
+    const q = req.query.q || "";
+
+    const products = await Product.find({
+      $or: [
+        { title: { $regex: q, $options: "i" } },
+        { company: { $regex: q, $options: "i" } },
+      ],
+    }).limit(20);
+    res.json(products);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 };
 
@@ -215,4 +231,5 @@ module.exports = {
   getProductById,
   updateProduct,
   deleteProduct,
+  searchProducts,
 };

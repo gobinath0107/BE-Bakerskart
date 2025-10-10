@@ -1,5 +1,7 @@
 const User = require("../models/User");
 const nodemailer = require("nodemailer");
+const sgMail = require('@sendgrid/mail');
+sgMail.setApiKey(process.env.SENDGRID_API_KEY)
 
 const registerUser = async (req, res) => {
   try {
@@ -83,7 +85,6 @@ const loginUser = async (req, res) => {
   }
 };
 
-// ---------------- FORGOT PASSWORD ----------------
 const forgotPassword = async (req, res) => {
   try {
     const { identifier } = req.body;
@@ -120,77 +121,69 @@ const forgotPassword = async (req, res) => {
       user.resetTokenExpiry = Date.now() + 10 * 60 * 1000; // 10 minutes
       await user.save();
 
-      // Send email OTP
-      const nodemailer = require("nodemailer");
-      const transporter = nodemailer.createTransport({
-        service: "gmail",
-        auth: {
-          user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASS,
-        },
-      });
-
-      await transporter.sendMail({
-        from: process.env.SMTP_USER,
+      // Send email via SendGrid with verified sender
+      const msg = {
         to: user.email,
+        from: "manager.bakerskart@gmail.com", // verified sender
+        replyTo: "manager.bakerskart@gmail.com",
         subject: "Password Reset OTP - BAKERSKART",
         html: `
-  <!DOCTYPE html>
-  <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Password Reset OTP</title>
-  </head>
-  <body style="margin:0; padding:0; background-color:#f7f5f2; font-family:'Poppins', Arial, sans-serif;">
-    <table width="100%" border="0" cellspacing="0" cellpadding="0" bgcolor="#f7f5f2" style="padding: 40px 0;">
-      <tr>
-        <td align="center">
-          <table width="500" border="0" cellspacing="0" cellpadding="0" bgcolor="#ffffff" style="border-radius: 12px; overflow: hidden; box-shadow: 0 3px 10px rgba(0,0,0,0.05);">
-            <!-- Header -->
-            <tr>
-              <td align="center" bgcolor="#fff5e6" style="padding: 25px;">
-                <img src="https://res.cloudinary.com/doiwmjhal/image/upload/v1759922062/bk_icon_bg_ipd4wy.png" alt="Bakerskart Logo" width="80" style="display:block; margin-bottom:10px;">
-                <h2 style="margin:0; color:#d35400; font-size:26px; font-weight:700; letter-spacing:1px;">BAKERSKART</h2>
-              </td>
-            </tr>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Password Reset OTP</title>
+</head>
+<body style="margin:0; padding:0; background-color:#f7f5f2; font-family:'Poppins', Arial, sans-serif;">
+  <table width="100%" border="0" cellspacing="0" cellpadding="0" bgcolor="#f7f5f2" style="padding: 40px 0;">
+    <tr>
+      <td align="center">
+        <table width="500" border="0" cellspacing="0" cellpadding="0" bgcolor="#ffffff" style="border-radius: 12px; overflow: hidden; box-shadow: 0 3px 10px rgba(0,0,0,0.05);">
+          <!-- Header -->
+          <tr>
+            <td align="center" bgcolor="#fff5e6" style="padding: 25px;">
+              <img src="https://res.cloudinary.com/doiwmjhal/image/upload/v1759922062/bk_icon_bg_ipd4wy.png" alt="Bakerskart Logo" width="80" style="display:block; margin-bottom:10px;">
+              <h2 style="margin:0; color:#d35400; font-size:26px; font-weight:700; letter-spacing:1px;">BAKERSKART</h2>
+            </td>
+          </tr>
 
-            <!-- Body -->
-            <tr>
-              <td style="padding: 30px 40px; color:#555; font-size:15px; line-height:1.6;">
-                <p style="margin-top:0;">Hello <strong>${
-                  user.username || "Customer"
-                }</strong>,</p>
-                <p>We received a request to reset your password for your <strong>BAKERSKART</strong> account.</p>
-                <p>Your One-Time Password (OTP) is:</p>
-                
-                <div style="text-align:center; margin: 25px 0;">
-                  <span style="display:inline-block; font-size:28px; font-weight:700; color:#d35400; letter-spacing:4px;">${otp}</span>
-                </div>
-                
-                <p>This OTP is valid for the next <strong>10 minutes</strong>. Please do not share it with anyone.</p>
-                <p>If you did not request this password reset, you can safely ignore this email.</p>
+          <!-- Body -->
+          <tr>
+            <td style="padding: 30px 40px; color:#555; font-size:15px; line-height:1.6;">
+              <p style="margin-top:0;">Hello <strong>${user.username || "Customer"}</strong>,</p>
+              <p>We received a request to reset your password for your <strong>BAKERSKART</strong> account.</p>
+              <p>Your One-Time Password (OTP) is:</p>
+              
+              <div style="text-align:center; margin: 25px 0;">
+                <span style="display:inline-block; font-size:28px; font-weight:700; color:#d35400; letter-spacing:4px;">${otp}</span>
+              </div>
+              
+              <p>This OTP is valid for the next <strong>10 minutes</strong>. Please do not share it with anyone.</p>
+              <p>If you did not request this password reset, you can safely ignore this email.</p>
 
-                <p style="margin-top:25px;">Warm regards,</p>
-                <p style="color:#d35400; font-weight:600;">Team Bakerskart 🍰</p>
-              </td>
-            </tr>
+              <p style="margin-top:25px;">Warm regards,</p>
+              <p style="color:#d35400; font-weight:600;">Team Bakerskart 🍰</p>
+            </td>
+          </tr>
 
-            <!-- Footer -->
-            <tr>
-              <td align="center" bgcolor="#fff5e6" style="padding: 20px 30px; color:#a67c52; font-size:13px;">
-                <p style="margin:0;">&copy; ${new Date().getFullYear()} BAKERSKART. All rights reserved.</p>
-                <p style="margin:0;">Madurai, Tamil Nadu, India</p>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-  </body>
-  </html>
-  `,
-      });
+          <!-- Footer -->
+          <tr>
+            <td align="center" bgcolor="#fff5e6" style="padding: 20px 30px; color:#a67c52; font-size:13px;">
+              <p style="margin:0;">&copy; ${new Date().getFullYear()} BAKERSKART. All rights reserved.</p>
+              <p style="margin:0;">Madurai, Tamil Nadu, India</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+        `,
+      };
+
+      await sgMail.send(msg);
 
       return res.status(200).json({
         message: "OTP sent to your email",
@@ -326,6 +319,24 @@ const deleteUser = async (req, res) => {
   }
 };
 
+const searchUsers = async (req, res) => {
+  try {
+    const q = req.query.q || "";
+    const users = await User.find({
+      $or: [
+        { name: { $regex: q, $options: "i" } },
+        { email: { $regex: q, $options: "i" } },
+        { company: { $regex: q, $options: "i" }}
+      ],
+    }).select("_id name email company city state username address");
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+
+
 module.exports = {
   registerUser,
   loginUser,
@@ -335,4 +346,5 @@ module.exports = {
   deleteUser,
   resetPassword,
   forgotPassword,
+  searchUsers
 };

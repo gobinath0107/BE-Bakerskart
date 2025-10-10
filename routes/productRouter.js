@@ -6,9 +6,11 @@ const {
   getProductById,
   updateProduct,
   deleteProduct,
+  searchProducts
 } = require("../controllers/ProductController");
 const { upload } = require("../utils/multer");
 
+router.get('/search', searchProducts)
 router.post(
   "/",
   upload.fields([

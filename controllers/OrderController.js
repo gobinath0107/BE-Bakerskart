@@ -17,7 +17,7 @@ const createOrder = async (req, res) => {
     const discountedTotal = Math.max(0, chargeTotal - discount);
     const order = await Order.create({
       ...data,
-      user: req.user.userId,
+      user: req.user.role === "admin" ? data.userId : req.user.userId,
       chargeTotal,
       discount,
       orderTotal: `${discountedTotal.toLocaleString()}`,
