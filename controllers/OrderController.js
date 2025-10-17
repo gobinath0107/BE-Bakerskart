@@ -181,20 +181,46 @@ const generateInvoice = async (req, res) => {
 
     // --- 4️⃣ Header ---
     const logoPath = path.join(__dirname, "../public/logo.jpeg");
-    doc.rect(0, 0, doc.page.width, 90).fill("#f5f7fa");
-    if (fs.existsSync(logoPath))
-      doc.image(logoPath, 40, 20, { width: 60, height: 60 });
 
+    // Draw header background
+    doc.save();
+    doc.rect(0, 0, doc.page.width, 90).fill("#f5f7fa");
+    doc.restore();
+
+    // Logo on the left
+    if (fs.existsSync(logoPath))
+      doc.image(logoPath, 40, 20, { width: 50, height: 50 });
+
+    // Left side — Company Name
     doc
       .fillColor("#2c3e50")
       .fontSize(24)
-      .text("BAKERSKART", 120, 35)
+      .text("BAKERSKART", 110, 35, { align: "left" });
+
+    // Right side — Address & Contact
+    const rightX = 300; // adjust as needed for spacing
+    doc
       .fontSize(10)
       .fillColor("#34495e")
-      .text("Madurai, Tamil Nadu, India", 400, 30)
-      .text("625011", 400, 45)
-      .text("manager.bakerskart@gmail.com", 400, 60)
-      .text("www.bakerskart.in", 400, 75);
+      .text("12A Sundarajapuram HH Road,", rightX, 25, {
+        width: 250,
+        align: "right",
+      })
+      .text("Madurai, Tamil Nadu, India - 625011", rightX, 40, {
+        width: 250,
+        align: "right",
+      })
+      .text("manager.bakerskart@gmail.com", rightX, 55, {
+        width: 250,
+        align: "right",
+      })
+      .text("www.bakerskart.in", rightX, 70, {
+        width: 250,
+        align: "right",
+      });
+
+    // Divider line below header
+    doc.moveTo(50, 100).lineTo(550, 100).strokeColor("#dfe6e9").stroke();
 
     // --- 5️⃣ Billing Info (Enhanced) ---
     const date = new Date(order.createdAt).toLocaleString("en-IN", {
@@ -202,7 +228,8 @@ const generateInvoice = async (req, res) => {
       timeStyle: "short",
     });
 
-    const invoiceNumber = order.orderId || "INV-" + order._id.toString().slice(-6);
+    const invoiceNumber =
+      order.orderId || "INV-" + order._id.toString().slice(-6);
 
     doc
       .fillColor("#2c3e50")
@@ -310,7 +337,6 @@ const generateInvoice = async (req, res) => {
       res.status(500).json({ message: "Failed to generate invoice" });
   }
 };
-
 
 module.exports = {
   createOrder,
