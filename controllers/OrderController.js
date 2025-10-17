@@ -161,25 +161,25 @@ const generateInvoice = async (req, res) => {
     const order = await Order.findById(orderId).populate("user");
     if (!order) return res.status(404).json({ message: "Order not found" });
 
-    // --- 1️⃣ Prepare response headers ---
+    // --- 1️⃣ Response headers ---
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
-      `inline; filename="invoice-${orderId}.pdf"`
+      `inline; filename="invoice-${order.orderId}.pdf"`
     );
 
-    // --- 2️⃣ Create doc and safely pipe to res ---
+    // --- 2️⃣ Create PDF ---
     const doc = new PDFDocument({ autoFirstPage: true, margin: 50 });
     doc.pipe(res);
 
-    // --- 3️⃣ Register font safely ---
+    // --- 3️⃣ Font setup ---
     const fontPath = path.join(__dirname, "../fonts/NotoSans.ttf");
     if (fs.existsSync(fontPath)) {
       doc.registerFont("NotoSans", fontPath);
       doc.font("NotoSans");
     }
 
-    // --- 4️⃣ HEADER section ---
+    // --- 4️⃣ Header ---
     const logoPath = path.join(__dirname, "../public/logo.jpeg");
     doc.rect(0, 0, doc.page.width, 90).fill("#f5f7fa");
     if (fs.existsSync(logoPath))
@@ -196,11 +196,13 @@ const generateInvoice = async (req, res) => {
       .text("manager.bakerskart@gmail.com", 400, 60)
       .text("www.bakerskart.in", 400, 75);
 
-    // --- 5️⃣ Billing info ---
+    // --- 5️⃣ Billing Info (Enhanced) ---
     const date = new Date(order.createdAt).toLocaleString("en-IN", {
       dateStyle: "medium",
       timeStyle: "short",
     });
+
+    const invoiceNumber = order.orderId || "INV-" + order._id.toString().slice(-6);
 
     doc
       .fillColor("#2c3e50")
@@ -209,20 +211,28 @@ const generateInvoice = async (req, res) => {
       .fontSize(10)
       .text(order.name, 50, 140)
       .text(order.address, 50, 155)
-      .text(order.user.email || order.user.mobile, 50, 170)
+      .text(order.city + ", " + order.state, 50, 170);
+
+    // 🧾 Additional details: user & company
+    const userInfoY = 185;
+    const company = order.user?.company || "N/A";
+    const userContact =
+      order.user?.email || order.user?.mobile || "Contact unavailable";
+
+    doc
+      .text(`Company: ${company}`, 50, userInfoY)
+      .text(`Customer: ${userContact}`, 50, userInfoY + 15);
+
+    // Invoice info (right side)
+    doc
       .fontSize(10)
-      .text(
-        `Invoice #: ${
-          order.orderId || "INV-" + order._id.toString().slice(-6)
-        }`,
-        400,
-        120
-      )
+      .text(`Invoice #: ${invoiceNumber}`, 400, 120)
       .text(`Date: ${date}`, 400, 135)
-      .text(`Status: ${order.status}`, 400, 150);
+      .text(`Status: ${order.status}`, 400, 150)
+      .text(`Order ID: ${order.orderId}`, 400, 165);
 
     // --- 6️⃣ Table header ---
-    const tableTop = 200;
+    const tableTop = 220;
     doc
       .fontSize(11)
       .fillColor("#2c3e50")
@@ -280,6 +290,7 @@ const generateInvoice = async (req, res) => {
       .fillColor("#007BFF")
       .fontSize(12)
       .text(`Total: ₹${total.toFixed(2)}`, 400, y + 35);
+
     // --- 9️⃣ Footer ---
     doc
       .fontSize(10)
@@ -291,7 +302,7 @@ const generateInvoice = async (req, res) => {
         { align: "center" }
       );
 
-    // --- 🔟 End document properly ---
+    // --- 🔟 End PDF ---
     doc.end();
   } catch (err) {
     console.error("Invoice Error:", err);
@@ -299,6 +310,7 @@ const generateInvoice = async (req, res) => {
       res.status(500).json({ message: "Failed to generate invoice" });
   }
 };
+
 
 module.exports = {
   createOrder,
